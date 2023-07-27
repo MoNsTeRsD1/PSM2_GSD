@@ -47,6 +47,29 @@ class _PurchaseHistoryForShopPageState
     }
   }
 
+  Future<void> setPurchaseStatus(orderId, newStatus) async {
+    try {
+      var url = Uri.http('157.245.199.11', 'orders/$orderId');
+
+      var orderDetails = jsonEncode({
+        'newStatus': newStatus,
+      });
+
+      var response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: orderDetails,
+      );
+
+      if (response.statusCode == 200) {
+        getOrders();
+        Navigator.of(context).pop();
+      } else {}
+    } catch (error) {
+      print('Error: $error');
+    }
+  }
+
   Future<void> getOrderDetails(int orderId) async {
     try {
       final response =
@@ -142,10 +165,12 @@ class _PurchaseHistoryForShopPageState
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text('Payment Type: ${order['paymentMethod']}'),
+                  Text('Final Price: \$${order['price'].toStringAsFixed(2)}'),
+                  Text('Discount: ${order['discount']}%'),
+                  Text('Commission: ${order['commission']}%'),
                   Text(
                       'Original Price: \$${order['originalPrice'].toStringAsFixed(2)}'),
-                  Text('Final Price: \$${order['price'].toStringAsFixed(2)}'),
-                  Text('Discount Amount: ${order['discount']}%'),
                   Text('Status: ${order['status']}'),
                   Text('Customer Name: ${order['customerName']}'),
                   Text('Customer Number: ${order['customerNumber']}'),
@@ -153,6 +178,29 @@ class _PurchaseHistoryForShopPageState
               ),
               onTap: () {
                 // getOrderDetails(order['orderId']);
+                showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton(
+                                child: Text('Delivered'),
+                                onPressed: () async {
+                                  setPurchaseStatus(
+                                      order['orderId'], 'delivered');
+                                },
+                              ),
+                              ElevatedButton(
+                                child: Text('  Cancel  '),
+                                onPressed: () async {
+                                  setPurchaseStatus(
+                                      order['orderId'], 'cancelled');
+                                },
+                              ),
+                            ],
+                          ),
+                        ));
               },
             ),
           );

@@ -269,9 +269,10 @@ class _CartPageState extends State<CartPage> {
   }
 
   displayPaymentSheet() async {
+    bool skipRedirect = false;
     try {
       await Stripe.instance.presentPaymentSheet().then((value) {
-        sendPaymentDetailsToBackend();
+        sendPaymentDetailsToBackend('card');
         showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -290,6 +291,7 @@ class _CartPageState extends State<CartPage> {
                 ));
         paymentIntent = null;
       }).onError((error, stackTrace) {
+        skipRedirect = true;
         showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -332,8 +334,10 @@ class _CartPageState extends State<CartPage> {
 
     Future.delayed(Duration(seconds: 1), () {
       Navigator.of(context).pop();
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (context) => PurchaseHistoryPage(userId: widget.userId)));
+      if (!skipRedirect) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+            builder: (context) => PurchaseHistoryPage(userId: widget.userId)));
+      }
     });
   }
 
@@ -352,13 +356,14 @@ class _CartPageState extends State<CartPage> {
     return true;
   }
 
-  Future<void> sendPaymentDetailsToBackend() async {
+  Future<void> sendPaymentDetailsToBackend(type) async {
     try {
       var url = Uri.http('157.245.199.11', 'orders');
 
       var orderDetails = jsonEncode({
         'userId': widget.userId,
         'discount': discountAmount,
+        'paymentMethod': type,
       });
 
       // print("Order Details: $orderDetails");
@@ -471,12 +476,18 @@ class _CartPageState extends State<CartPage> {
                               IconButton(
                                 icon: Icon(Icons.add),
                                 onPressed: () {
-                                  setState(() {
-                                    item['amount']++;
-                                  });
-                                  // Send PUT request to update the item quantity in the backend
-                                  updateCartItem(
-                                      item['cartItemId'], item['amount']);
+                                  int cartLimit = item['stock'];
+                                  if (cartLimit > 10) {
+                                    cartLimit = 10;
+                                  }
+                                  if (item['amount'] < cartLimit) {
+                                    setState(() {
+                                      item['amount']++;
+                                    });
+                                    // Send PUT request to update the item quantity in the backend
+                                    updateCartItem(
+                                        item['cartItemId'], item['amount']);
+                                  }
                                 },
                               ),
                             ],
@@ -535,8 +546,36 @@ class _CartPageState extends State<CartPage> {
               SizedBox(height: 16.0),
               ElevatedButton(
                 onPressed: () async {
-                  // Perform purchase action
-                  makePayment();
+                  showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ElevatedButton(
+                                  child: Text('Card Payment'),
+                                  onPressed: () async {
+                                    makePayment();
+                                  },
+                                ),
+                                ElevatedButton(
+                                  child: Text('Cash on Delivery'),
+                                  onPressed: () async {
+                                    sendPaymentDetailsToBackend('cash');
+                                    Future.delayed(Duration(milliseconds: 300),
+                                        () {
+                                      Navigator.of(context).pop();
+                                      Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                              builder: (context) =>
+                                                  PurchaseHistoryPage(
+                                                      userId: widget.userId)));
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ));
                 },
                 child: Text('Purchase'),
               ),

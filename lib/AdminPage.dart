@@ -10,11 +10,17 @@ class AdminLandingPage extends StatefulWidget {
 class _AdminLandingPageState extends State<AdminLandingPage> {
   List<dynamic> acceptedShops = [];
   List<dynamic> pendingShops = [];
+  dynamic _revenue;
+  double get revenue => (_revenue != null) ? _revenue.toDouble() : 0.0;
+  set revenue(val) {
+    _revenue = val;
+  }
 
   @override
   void initState() {
     super.initState();
     getShops();
+    getRevenue();
   }
 
   Future<void> getShops() async {
@@ -23,9 +29,6 @@ class _AdminLandingPageState extends State<AdminLandingPage> {
           await http.get(Uri.http('157.245.199.11', 'users/shopsAdmin'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // print("Indeed start");
-        // print(data.where((i) => i["shopStatus"] == 'active'));
-        // print("Indeed End");
         setState(() {
           acceptedShops = List<dynamic>.from(
               data.where((i) => i["shopStatus"] == 'active').toList());
@@ -34,6 +37,23 @@ class _AdminLandingPageState extends State<AdminLandingPage> {
         });
       } else {
         throw Exception('Failed to fetch shop data');
+      }
+    } catch (error) {
+      print('Error: $error');
+    }
+  }
+
+  Future<void> getRevenue() async {
+    try {
+      final response =
+          await http.get(Uri.http('157.245.199.11', 'orders/adminRevenue'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          revenue = data['revenue'];
+        });
+      } else {
+        throw Exception('Failed to get admin revenue');
       }
     } catch (error) {
       print('Error: $error');
@@ -149,61 +169,77 @@ class _AdminLandingPageState extends State<AdminLandingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: Icon(Icons.menu),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.notifications),
-            onPressed: _showNotificationsPopup,
+        appBar: AppBar(
+          leading: Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: Icon(Icons.menu),
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                },
+              );
+            },
           ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              child: Text('Admin Menu'),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            ListTile(
-              title: Text('Logout'),
-              leading: Icon(Icons.logout),
-              onTap: () {
-                // Perform logout
-                Navigator.pushReplacementNamed(context, '/login');
-              },
+          actions: [
+            IconButton(
+              icon: Icon(Icons.notifications),
+              onPressed: _showNotificationsPopup,
             ),
           ],
         ),
-      ),
-      body: ListView.builder(
-        itemCount: acceptedShops.length,
-        itemBuilder: (BuildContext context, int index) {
-          final shopName = acceptedShops[index]["name"];
-          return ListTile(
-            leading: Icon(Icons.shop),
-            title: Text(shopName),
-            trailing: IconButton(
-              icon: Icon(Icons.delete),
-              onPressed: () {
-                deleteShop(index);
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              DrawerHeader(
+                child: Text('Admin Menu'),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              ListTile(
+                title: Text('Logout'),
+                leading: Icon(Icons.logout),
+                onTap: () {
+                  // Perform logout
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
+              ),
+            ],
+          ),
+        ),
+        body: Column(children: [
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey),
+              ),
+            ),
+            height: 50,
+            child: Text(
+              'Total Revenue: \$${revenue.toStringAsFixed(2)}',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+            alignment: Alignment.center,
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: acceptedShops.length,
+              itemBuilder: (BuildContext context, int index) {
+                final shopName = acceptedShops[index]["name"];
+                return ListTile(
+                  leading: Icon(Icons.shop),
+                  title: Text(shopName),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete),
+                    onPressed: () {
+                      deleteShop(index);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
-      ),
-    );
+          )
+        ]));
   }
 }

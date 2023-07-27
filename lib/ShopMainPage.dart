@@ -22,6 +22,7 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
   XFile? _imageFile;
   String? _encodedImage;
   dynamic user;
+  dynamic shopStatus;
 
   @override
   void initState() {
@@ -71,10 +72,36 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
     }
   }
 
-  ////////////////////
-  ///
-  ///
-  ///////////////////
+  Future<void> openCloseShop() async {
+    var newStatus;
+    if (user['shopStatus'] == 'active') {
+      newStatus = "closed";
+    } else if (user['shopStatus'] == 'closed') {
+      newStatus = "active";
+    } else {
+      // maybe show a popup saying they cant change their status
+      print('here');
+      return;
+    }
+    try {
+      var url = Uri.http('157.245.199.11', 'users/shopStatus/${widget.shopId}');
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'newStatus': newStatus,
+        }),
+      );
+      if (response.statusCode == 200) {
+        getShopData();
+        // setState(() {});
+      } else {
+        throw Exception('Failed to update status');
+      }
+    } catch (error) {
+      print('Error: $error');
+    }
+  }
 
   void deleteProduct(int index, int productId) async {
     // Remove the product from the list and update the UI
@@ -108,11 +135,13 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
     }
   }
 
-  void addProduct(dynamic nameController, dynamic priceController) async {
+  void addProduct(dynamic nameController, dynamic priceController,
+      dynamic stockController) async {
     final newProduct = {
       'name': nameController.text,
       'image': _encodedImage != null ? _encodedImage : '',
       'price': double.parse(priceController.text),
+      'stock': int.parse(stockController.text),
       'shopId': widget.shopId,
     };
     // setState(() {
@@ -140,12 +169,13 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
   }
 
   void editProduct(dynamic product, dynamic nameController,
-      dynamic priceController, index) async {
+      dynamic stockController, dynamic priceController, index) async {
     final updatedProduct = {
       'id': product['id'],
       'name': nameController.text,
       'image': _encodedImage != null ? _encodedImage : product['image'],
       'price': double.parse(priceController.text),
+      'stock': int.parse(stockController.text),
       'shopId': widget.shopId,
     };
     setState(() {
@@ -195,7 +225,8 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
   get welcomeText {
     String welcomeText = "";
     if (user != null) {
-      welcomeText = "Shop ${user['name']}'s Listed Items'";
+      welcomeText =
+          "Shop ${user['name']}'s Listed Items (${user['shopStatus']})'";
     }
     return welcomeText;
   }
@@ -203,6 +234,7 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
   void showAddProductDialog() {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController priceController = TextEditingController();
+    final TextEditingController stockController = TextEditingController();
 
     showDialog(
       context: context,
@@ -243,6 +275,13 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
                   labelText: 'Price',
                 ),
               ),
+              TextField(
+                controller: stockController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Stock',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -257,7 +296,7 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
             TextButton(
               child: Text('Add'),
               onPressed: () async {
-                addProduct(nameController, priceController);
+                addProduct(nameController, priceController, stockController);
                 _imageFile = null;
                 _encodedImage = null;
                 setState(() {});
@@ -276,6 +315,8 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
         TextEditingController(text: product['name']);
     final TextEditingController priceController =
         TextEditingController(text: product['price'].toString());
+    final TextEditingController stockController =
+        TextEditingController(text: product['stock'].toString());
     _encodedImage = product['image'];
     setState(() {});
 
@@ -320,6 +361,13 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
                   labelText: 'Price',
                 ),
               ),
+              TextField(
+                controller: stockController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Stock',
+                ),
+              ),
             ],
           ),
           actions: [
@@ -334,7 +382,8 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
             TextButton(
               child: Text('Save'),
               onPressed: () async {
-                editProduct(product, nameController, priceController, index);
+                editProduct(product, nameController, stockController,
+                    priceController, index);
                 _imageFile = null;
                 _encodedImage = null;
                 setState(() {});
@@ -362,6 +411,7 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
             );
           },
         ),
+        // title: Text('Open'),
         actions: [
           CircleAvatar(
             backgroundImage: AssetImage('assets/images/icon.png'),
@@ -408,6 +458,13 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
+            ListTile(
+              title: Text('Close/Open Shop'),
+              leading: Icon(Icons.shopping_basket),
+              onTap: () {
+                openCloseShop();
+              },
+            ),
           ],
         ),
       ),
@@ -442,14 +499,27 @@ class _ShopLandingPageState extends State<ShopLandingPage> {
                       child: Image.memory(base64Decode(product["image"])),
                     ),
                     title: Text(product["name"]),
-                    subtitle: Text(product["price"].toString()),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Price: ${product["price"].toString()}'),
+                        Text('Stock: ${product["stock"].toString()}'),
+                      ],
+                    ),
                     onTap: () {
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
                             title: Text(product["name"]),
-                            content: Text(product["price"].toString()),
+                            content: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Price: ${product["price"].toString()}'),
+                                Text('Stock: ${product["stock"].toString()}'),
+                              ],
+                            ),
                             actions: [
                               TextButton(
                                 child: Text('Edit'),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:groceriery/Cart.dart';
+import 'package:groceriery/PurchaseHistoryPage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -204,9 +205,18 @@ class _ShopPageState extends State<ShopPage> {
                         Text(item["description"]),
                         TextButton(
                           onPressed: () {
-                            addCartItem(item["id"], 1);
+                            if (item["stock"] > 0) {
+                              addCartItem(item["id"], 1);
+                            }
                           },
-                          child: Text('Add to cart'),
+                          child: (item["stock"] > 0)
+                              ? Text('Add to cart')
+                              : Text(
+                                  "Out of stock",
+                                  style: TextStyle(
+                                      color:
+                                          Color.fromARGB(255, 150, 150, 150)),
+                                ),
                         ),
                       ],
                     ),
@@ -254,7 +264,13 @@ class _ShopPageState extends State<ShopPage> {
                 builder: (context) => CartPage(
                       userId: widget.userId,
                     )));
-          } else if (index == 2) {}
+          } else if (index == 2) {
+            Navigator.of(context).pop();
+            Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (context) => PurchaseHistoryPage(
+                      userId: widget.userId,
+                    )));
+          }
         },
       ),
     );
